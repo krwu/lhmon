@@ -1,0 +1,13 @@
+warn_rate: 0.75 # 报警的流量使用率
+shutdown_rate: 0.9 # 自动关机的流量使用率
+sct_key: SCT63835TF0Nj4TTuZWUrqUucxFibgAyK # Server酱(sct.ftqq.com)的 SendKey
+check_interval: 30 # 检查间隔，单位：秒
+accounts: # 要检查的账户列表
+  - name: "账户一" # 账户名称
+    secret_id: "secret_id_1" # 该帐户的 secretId
+    secret_key: "secret_key_1" # 该账户的 secretKey
+    regions: [ "ap-hongkong", "ap-guangzhou" ] # 要监控的区域
+  - name: "账户二" # 账户名称
+    secret_id: "secret_id_2" # 该帐户的 secretId
+    secret_key: "secret_key_2" # 该账户的 secretKey
+    regions: [ "ap-guangzhou" ] # 要监控的区域
