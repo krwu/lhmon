@@ -26,7 +26,7 @@
 - 启动 Docker 容器： 
 
   ```bash
-  docker run --itd --name lhmon -v:{yaml配置文件路径}:/etc/lhmon/conf.yml kairee/lhmon:latest
+  docker run -itd --name lhmon -v:{yaml配置文件路径}:/etc/lhmon/conf.yml kairee/lhmon:latest
   ```
 - 或者使用 docker-compose： 
 
