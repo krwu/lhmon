@@ -9,7 +9,7 @@ on:
 jobs:
 
   build:
-
+    environment: kairee
     runs-on: ubuntu-latest
 
     steps:
