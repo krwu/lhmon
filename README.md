@@ -26,7 +26,7 @@
 - 启动 Docker 容器： 
 
   ```bash
-  docker run -itd --name lhmon -v:{yaml配置文件路径}:/etc/lhmon/conf.yml -v /etc/localtime:/etc/localtime kairee/lhmon:latest
+  docker run -itd --name lhmon -v ${yaml配置文件路径}:/etc/lhmon/conf.yml -v /etc/localtime:/etc/localtime kairee/lhmon:latest
   ```
 - 或者使用 docker-compose： 
 
@@ -38,8 +38,9 @@
       restart: unless-stopped
       volumes:
         - /etc/localtime:/etc/localtime
-        - {yaml配置文件路径}:/etc/lhmon/conf.yml
+        - ${yaml配置文件路径}:/etc/lhmon/conf.yml
   ```
+- 以上命令或配置中的 `${yaml配置文件路径}` 请自行替换为**自己的路径**
 
 ## 开发计划：
 
