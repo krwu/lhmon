@@ -28,6 +28,7 @@
   ```bash
   docker run -itd --name lhmon -v ${yaml配置文件路径}:/etc/lhmon/conf.yml -v /etc/localtime:/etc/localtime kairee/lhmon:latest
   ```
+  如果担心日志文件大小，可以用 `--log-opt max-size=5m --log-opt max-file=3` 来指定（__注意：仅限默认未配置 docker 日志参数的情况，如果你已全局配置，或者日志驱动不是 `json-file`，请根据自己的情况具体配置__）。
 - 或者使用 docker-compose： 
 
   ```yaml
@@ -39,6 +40,11 @@
       volumes:
         - /etc/localtime:/etc/localtime
         - ${yaml配置文件路径}:/etc/lhmon/conf.yml
+      logging:
+        driver: "json-file" # 默认的日志驱动
+        options:
+          max-size: "5m" # 单个日志文件最大尺寸
+          max-file: "5" # 最多保留日志文件数量
   ```
 - 以上命令或配置中的 `${yaml配置文件路径}` 请自行替换为**自己的路径**
 
