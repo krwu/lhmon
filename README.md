@@ -5,6 +5,13 @@
 
 ## 使用方法：
 
+- API帐号
+  1. 在腾讯云"[访问管理](https://console.cloud.tencent.com/cam/overview)-用户-[用户列表](https://console.cloud.tencent.com/cam)" 下面，创建一个新的子用户（或者使用一个现有的子用户），该子用户的访问方式应该为__“编程访问”__，不需要控制台访问权限。
+  2. 选定的子用户最小所需权限如下：
+    - lighthouse:DescribeInstances 用于读取轻量云实例信息
+    - lighthouse:DescribeInstancesTrafficPackages 用于读取轻量云流量包信息
+    - lighthouse:StopInstances 用于自动关机（如果不需要自动关机功能，可以不授予此项权限，见下面的配置说明）
+
 - 配置文件
   首先要准备一个 yaml 配置文件，格式如下： 
 
