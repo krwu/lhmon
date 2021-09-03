@@ -72,23 +72,27 @@ func checkTraffic(a account, ch chan string, wg *sync.WaitGroup) {
 		c := NewLighthouseClient(id, key, r)
 		pkgs := c.ListTrafficPackages()
 		for _, pkg := range pkgs {
-			if pkg.UseRate() > Conf.ShutdownRate {
-				// log.Printf()
+			log.Printf("[%s] 账号：%s, 区域：%s, 实例：%s, 使用率：%.2f，已用：%s，总共：%s\n",
+				time.Now().Format("2006-01-02 15:04:05"),
+				a.Name,
+				r,
+				pkg.InstanceID,
+				pkg.UseRate(),
+				calcTraffic(pkg.Used),
+				calcTraffic(pkg.Total),
+			)
+
+			if pkg.UseRate() == 0 { // 使用率为0直接跳过
+				break
+			}
+
+			if Conf.ShutdownRate > 0 && pkg.UseRate() > Conf.ShutdownRate {
 				c.ShutdownInstance(pkg.InstanceID)
 				ch<- fmt.Sprintf("- 账号[%s] 实例[%s] 使用率[%.2f]，执行关机！", a.Name, pkg.InstanceID, pkg.UseRate())
-			} else if pkg.UseRate() > Conf.WarnRate {
-				// log.Printf("账号[%s]下的实例[%s]流量使用已达到告警阈值，发送告警通知\n", a.Name, pkg.InstanceID)
+			}
+
+			if Conf.WarnRate > 0 && pkg.UseRate() > Conf.WarnRate {
 				ch<- fmt.Sprintf("- 账号[%s] 实例[%s] 使用率[%.2f]，请关注！", a.Name, pkg.InstanceID, pkg.UseRate())
-			} else {
-				log.Printf("[%s] 账号：%s, 区域：%s, 实例：%s, 使用率：%.2f，已用：%s，总共：%s\n",
-					time.Now().Format("2006-01-02 15:04:05"),
-					a.Name,
-					r,
-					pkg.InstanceID,
-					pkg.UseRate(),
-					calcTraffic(pkg.Used),
-					calcTraffic(pkg.Total),
-				)
 			}
 		}
 	}

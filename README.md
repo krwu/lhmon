@@ -9,9 +9,9 @@
   首先要准备一个 yaml 配置文件，格式如下： 
 
   ```yaml
-  warn_rate: 0.75 # 报警的流量使用率
-  shutdown_rate: 0.9 # 自动关机的流量使用率
   sct_key: SERVER_SEND_KEY # Server酱(sct.ftqq.com)的 SendKey
+  warn_rate: 0.75 # 报警通知的流量使用率，如果设为 0 表示不使用报警功能
+  shutdown_rate: 0.9 # 自动关机的流量使用率，如果设为 0 表示不使用自动关机功能
   check_interval: 30 # 检查间隔，单位：秒
   accounts: # 要检查的账户列表
     - name: "账户一" # 账户名称
