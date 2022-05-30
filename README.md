@@ -16,7 +16,9 @@
   首先要准备一个 yaml 配置文件，格式如下： 
 
   ```yaml
-  sct_key: SERVER_SEND_KEY # Server酱(sct.ftqq.com)的 SendKey
+  notify_method: nextrt # 使用 nextrt 渠道进行通知
+  nextrt_type: email # NextRT 的推送使用 Email 方式
+  nextrt_token: 3413d...0ad1 # NextRT 的推送 Token（到 https://app.nextrt.com 注册）
   warn_rate: 0.75 # 报警通知的流量使用率，如果设为 0 表示不使用报警功能
   shutdown_rate: 0.9 # 自动关机的流量使用率，如果设为 0 表示不使用自动关机功能
   check_interval: 30 # 检查间隔，单位：秒
@@ -30,6 +32,26 @@
       secret_key: "secret_key_2" # 该账户的 secretKey
       regions: [ "ap-guangzhou" ] # 要监控的区域
   ```
+  **配置文件特别说明：**
+  1. `notify_method` 目前可选的值有：sct(Server酱)、werobot（企业微信群机器人）、NextRT，三选一
+  2. 根据 `notify_method` 的不同，需要配置做对应的配置：
+     - sct: (https://sct.ftqq.com/)
+       ```yaml
+       notify_method: sct
+       sct_key: SCT63835...RhMSG # 从 sct.ftqq.com 获取的 sendkey
+       ```
+     - werobot:
+       ```yaml
+       notify_method: werobot
+       werobot_webhook: https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=077...5f4 # 企业微信群机器人的 webhook 地址
+       werobot_chatid:  # 企业微信群机器人推送通知的 chatid，没有可留空
+       ```
+     - nextrt:
+       ```yaml
+       notify_method: nextrt
+       nextrt_type: Telegram # NextRT 的推送类型：Email,Telegram,WorkWechat,Lark,Dingding,Android
+       nextrt_token: 3413...0ad1 # NextRT 的推送 Token，从 https://app.nextrt.com/ 注册获取
+       ```
 - 启动 Docker 容器： 
 
   ```bash

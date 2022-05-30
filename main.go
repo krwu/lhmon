@@ -1,14 +1,15 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
-	"net/http"
-	"net/url"
 	"strings"
 	"sync"
 	"time"
+
+	"lighthouse-monitor/notifier"
 )
 
 const (
@@ -88,32 +89,35 @@ func checkTraffic(a account, ch chan string, wg *sync.WaitGroup) {
 
 			if Conf.ShutdownRate > 0 && pkg.UseRate() > Conf.ShutdownRate {
 				c.ShutdownInstance(pkg.InstanceID)
-				ch<- fmt.Sprintf("- 账号[%s] 实例[%s] 使用率[%.2f]，执行关机！", a.Name, pkg.InstanceID, pkg.UseRate())
+				ch <- fmt.Sprintf("- 账号[%s] 实例[%s] 使用率[%.2f]，执行关机！", a.Name, pkg.InstanceID, pkg.UseRate())
 			}
 
 			if Conf.WarnRate > 0 && pkg.UseRate() > Conf.WarnRate {
-				ch<- fmt.Sprintf("- 账号[%s] 实例[%s] 使用率[%.2f]，请关注！", a.Name, pkg.InstanceID, pkg.UseRate())
+				ch <- fmt.Sprintf("- 账号[%s] 实例[%s] 使用率[%.2f]，请关注！", a.Name, pkg.InstanceID, pkg.UseRate())
 			}
 		}
 	}
 }
 
 func notify(format string, args ...interface{}) {
-	client := http.Client{
-		Timeout:       time.Second * 3,
-	}
 	desp := fmt.Sprintf(format, args...)
-	body := url.Values{}
-	body.Add("title", "腾讯云轻量监控通知")
-	body.Add("desp", desp)
-	api := fmt.Sprintf("https://sctapi.ftqq.com/%s.send", Conf.SCTKey)
-	req, err := http.NewRequest(http.MethodPost, api, strings.NewReader(body.Encode()))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	if err != nil {
-		log.Printf("[%s] ERROR %v\n", time.Now().Format("20060102 15:04:05"), err)
+	title := "腾讯云轻量监控通知"
+	message := desp
+	var client notifier.Notifier
+	switch Conf.NotifyType {
+	case NotifySCT:
+		client = notifier.NewSCT(Conf.SCTKey)
+	case NotifyWERobot:
+		client = notifier.NewWERobot(Conf.WERobotWebhook, Conf.WERobotChatID)
+	case NotifyNextrt:
+		client = notifier.NewNextrt(Conf.NextrtType, Conf.NextrtToken)
+	default:
+		log.Printf("[%s] ERROR %s：%v\n", time.Now().Format("20060102 15:04:05"), "不支持的通知渠道", Conf.NotifyType)
 		return
 	}
-	_, err = client.Do(req)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	err := client.Send(ctx, title, message)
 	if err != nil {
 		log.Printf("[%s] ERROR %v\n", time.Now().Format("20060102 15:04:05"), err)
 		return
@@ -122,7 +126,7 @@ func notify(format string, args ...interface{}) {
 
 func calcTraffic(bytes int64) string {
 	var result float64
-	if bytes > TB && bytes % TB == 0 {
+	if bytes > TB && bytes%TB == 0 {
 		result = float64(bytes) / TB
 		return fmt.Sprintf("%.02fTB", result)
 	}

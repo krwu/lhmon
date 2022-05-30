@@ -1,6 +1,13 @@
 warn_rate: 0.75 # 报警的流量使用率
 shutdown_rate: 0.9 # 自动关机的流量使用率
-sct_key: SERVER_SEND_KEY # Server酱(sct.ftqq.com)的 SendKey
+notify_method: sct # 通知方式，支持：sct=Server酱|werobot=企业微信机器人|nextrt=NextRT
+# 以下请根据选择的通知方式进行对应配置
+sct_key: SERVER_SEND_KEY # Server酱的 SendKey
+# werobot_webhook: https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=KEY # 企业微信机器人的 webhook 地址
+# werobot_chatid: CHATID # 企业微信机器人的 chatid，可以为空
+# nextrt_type: email # NextRT 的推送类型（Email、Telegram、Android 等）
+# nextrt_token: TOKEN # NextRT 的推送 Token
+
 check_interval: 30 # 检查间隔，单位：秒
 accounts: # 要检查的账户列表
   - name: "账户一" # 账户名称
