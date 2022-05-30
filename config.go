@@ -19,7 +19,7 @@ type Config struct {
 	WarnRate       float64    `yaml:"warn_rate"`
 	ShutdownRate   float64    `yaml:"shutdown_rate"`
 	CheckInterval  int64      `yaml:"check_interval"`
-	NotifyType     NotifyType `yaml:"notify_type"`
+	NotifyType     NotifyType `yaml:"notify_method"`
 	SCTKey         string     `yaml:"sct_key"`
 	WERobotWebhook string     `yaml:"werobot_webhook"`
 	WERobotChatID  string     `yaml:"werobot_chatid"`
