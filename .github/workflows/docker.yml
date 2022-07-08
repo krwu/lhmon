@@ -14,16 +14,30 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
+    - name: Docker meta
+      id: meta
+      uses: docker/metadata-action@v4
+      with:
+        # list of Docker images to use as base name for tags
+        images: |
+          kairee/lhmon
+        # generate Docker tags based on the following events/attributes
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
     - name: Build the Docker image
       run: docker build . --file Dockerfile --tag kairee/lhmon:latest
     - name: Docker Hub login
-      uses: docker/login-action@v1.10.0
+      uses: docker/login-action@v2
       with:
         username: ${{ secrets.DOCKER_USER }}
         password: ${{ secrets.DOCKER_PASS }}
     - name: Push to Docker Hub
-      uses: docker/build-push-action@v2
+      uses: docker/build-push-action@v3
       with:
+        platforms: linux/amd64,linux/arm64
         push: true
-        tags: kairee/lhmon:latest
+        tags: ${{ steps.meta.outputs.tags }}

@@ -5,9 +5,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"time"
+
+	"lighthouse-monitor/log"
 )
 
 type WERobotNotifier struct {

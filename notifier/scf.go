@@ -2,11 +2,12 @@ package notifier
 
 import (
 	"context"
-	"log"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
+
+	"lighthouse-monitor/log"
 )
 
 const (

@@ -20,23 +20,23 @@ type LighthouseClient interface {
 }
 
 type lighthouseClient struct {
-	secretID string
+	secretID  string
 	secretKey string
-	region string
+	region    string
 }
 
 func NewLighthouseClient(id, key, region string) LighthouseClient {
 	return &lighthouseClient{
-		secretID: id,
+		secretID:  id,
 		secretKey: key,
-		region: region,
+		region:    region,
 	}
 }
 
 type TrafficPackage struct {
 	InstanceID string
-	Total int64
-	Used int64
+	Total      int64
+	Used       int64
 }
 
 func (pkg *TrafficPackage) UseRate() float64 {
@@ -69,7 +69,7 @@ func (c *lighthouseClient) RunningInstances() []string {
 			result = append(result, *instance.InstanceId)
 		}
 	}
-	log.Printf("[INFO] There are %d running instances: %v", len(result), result)
+	// log.Printf("[INFO] There are %d running instances: %v", len(result), result)
 	return result
 }
 

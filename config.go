@@ -2,7 +2,8 @@ package main
 
 import (
 	"io/ioutil"
-	"log"
+
+	"go.uber.org/zap"
 
 	"gopkg.in/yaml.v3"
 )
@@ -43,8 +44,10 @@ func InitConfig(file string) {
 	}
 	err = yaml.Unmarshal(yamlByte, &conf)
 	if err != nil {
-		log.Fatalf("load config|error|%v|file|%s", err, file)
+		logger.Fatal("failed to load config",
+			zap.String("error", err.Error()),
+			zap.String("file", file),
+		)
 	}
 	Conf = conf
-	log.Printf("共有%d个账号要检查\n", len(conf.Accounts))
 }

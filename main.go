@@ -4,12 +4,17 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"log"
 	"strings"
 	"sync"
 	"time"
 
+	"go.uber.org/automaxprocs/maxprocs"
+
+	"lighthouse-monitor/log"
 	"lighthouse-monitor/notifier"
+
+	_ "go.uber.org/automaxprocs/maxprocs"
+	"go.uber.org/zap"
 )
 
 const (
@@ -20,17 +25,19 @@ const (
 )
 
 var (
-	Conf Config
+	Conf   Config
+	logger = log.Logger()
 )
 
 func main() {
-	file := flag.String("conf", "/etc/lhmon/conf.yml", "配置文件路径")
+	file := flag.String("conf", "conf.yml", "配置文件路径")
 	flag.Parse()
 	if file == nil || *file == "" {
 		log.Fatalf("必须指定配置文件")
 	}
 
 	InitConfig(*file)
+	logger.Info("started", zap.Int("帐号数", len(Conf.Accounts)))
 	go cronTask()
 
 	interval := time.Duration(Conf.CheckInterval) * time.Second
@@ -60,7 +67,7 @@ func cronTask() {
 	}
 
 	if len(results) > 0 {
-		log.Printf("%s\n", strings.Join(results, "\n"))
+		log.Printf(strings.Join(results, "\n"))
 		notify("%s\n", strings.Join(results, "\n\n"))
 	}
 }
@@ -73,14 +80,13 @@ func checkTraffic(a account, ch chan string, wg *sync.WaitGroup) {
 		c := NewLighthouseClient(id, key, r)
 		pkgs := c.ListTrafficPackages()
 		for _, pkg := range pkgs {
-			log.Printf("[%s] 账号：%s, 区域：%s, 实例：%s, 使用率：%.2f，已用：%s，总共：%s\n",
-				time.Now().Format("2006-01-02 15:04:05"),
-				a.Name,
-				r,
-				pkg.InstanceID,
-				pkg.UseRate(),
-				calcTraffic(pkg.Used),
-				calcTraffic(pkg.Total),
+			logger.Info("result",
+				zap.String("帐号", a.Name),
+				zap.String("区域", r),
+				zap.String("实例", pkg.InstanceID),
+				zap.String("使用率", fmt.Sprintf("%.2f", pkg.UseRate())),
+				zap.String("已用", calcTraffic(pkg.Used)),
+				zap.String("总共", calcTraffic(pkg.Total)),
 			)
 
 			if pkg.UseRate() == 0 { // 使用率为0直接跳过
@@ -112,14 +118,14 @@ func notify(format string, args ...interface{}) {
 	case NotifyNextrt:
 		client = notifier.NewNextrt(Conf.NextrtType, Conf.NextrtToken)
 	default:
-		log.Printf("[%s] ERROR %s：%v\n", time.Now().Format("20060102 15:04:05"), "不支持的通知渠道", Conf.NotifyType)
+		log.Errorf("%s：%v", "不支持的通知渠道", Conf.NotifyType)
 		return
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	err := client.Send(ctx, title, message)
 	if err != nil {
-		log.Printf("[%s] ERROR %v\n", time.Now().Format("20060102 15:04:05"), err)
+		log.Errorf("%v", err)
 		return
 	}
 }
@@ -147,4 +153,8 @@ func calcTraffic(bytes int64) string {
 	}
 
 	return fmt.Sprintf("%dB", bytes)
+}
+
+func init() {
+	maxprocs.Set(maxprocs.Logger(func(string, ...interface{}) {}))
 }

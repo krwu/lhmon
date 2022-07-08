@@ -3,9 +3,10 @@ package notifier
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/http"
 	"time"
+
+	"lighthouse-monitor/log"
 )
 
 type NextrtNotifier struct {
