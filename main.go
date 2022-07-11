@@ -2,8 +2,10 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -30,7 +32,11 @@ var (
 )
 
 func main() {
-	file := flag.String("conf", "conf.yml", "配置文件路径")
+	path := "./conf.yml"
+	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
+		path = "/etc/lhmon/conf.yml"
+	}
+	file := flag.String("conf", "/etc/lhmon/conf.yml", "配置文件路径")
 	flag.Parse()
 	if file == nil || *file == "" {
 		log.Fatalf("必须指定配置文件")
