@@ -35,7 +35,7 @@
   **配置文件特别说明：**
   1. `notify_method` 目前可选的值有：sct(Server酱)、werobot（企业微信群机器人）、NextRT，三选一
   2. 根据 `notify_method` 的不同，需要配置做对应的配置：
-     - sct: (https://sct.ftqq.com/)
+     - sct: ([https://sct.ftqq.com/](https://sct.ftqq.com/r/13200))
        ```yaml
        notify_method: sct
        sct_key: SCT63835...RhMSG # 从 sct.ftqq.com 获取的 sendkey
