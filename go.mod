@@ -1,6 +1,6 @@
 module lighthouse-monitor
 
-go 1.18
+go 1.25
 
 require (
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common v1.3.57
