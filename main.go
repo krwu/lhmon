@@ -121,6 +121,8 @@ func notify(format string, args ...interface{}) {
 		client = notifier.NewSCT(Conf.SCTKey)
 	case NotifyWERobot:
 		client = notifier.NewWERobot(Conf.WERobotWebhook, Conf.WERobotChatID)
+	case NotifyNotifyx:
+		client = notifier.NewNotifyx(Conf.NotifyxKey, Conf.NotifyxTeam)
 	default:
 		log.Errorf("%s：%v", "不支持的通知渠道", Conf.NotifyType)
 		return

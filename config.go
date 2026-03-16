@@ -13,6 +13,7 @@ type NotifyType string
 const (
 	NotifySCT     NotifyType = "sct"
 	NotifyWERobot NotifyType = "werobot"
+	NotifyNotifyx NotifyType = "notifyx"
 )
 
 type Config struct {
@@ -23,6 +24,8 @@ type Config struct {
 	SCTKey         string     `yaml:"sct_key"`
 	WERobotWebhook string     `yaml:"werobot_webhook"`
 	WERobotChatID  string     `yaml:"werobot_chatid"`
+	NotifyxKey     string     `yaml:"notifyx_key"`
+	NotifyxTeam    string     `yaml:"notifyx_team"`
 	Accounts       []account  `yaml:"accounts"`
 }
 

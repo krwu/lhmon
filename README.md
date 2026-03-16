@@ -32,7 +32,7 @@
       regions: [ "ap-guangzhou" ] # 要监控的区域
   ```
   **配置文件特别说明：**
-  1. `notify_method` 目前可选的值有：sct(Server酱)、werobot（企业微信群机器人），二选一
+  1. `notify_method` 目前可选的值有：sct(Server酱)、werobot（企业微信群机器人）、notifyx（NotifyX），三选一
   2. 根据 `notify_method` 的不同，需要配置做对应的配置：
      - sct: ([https://sct.ftqq.com/](https://sct.ftqq.com/r/13200))
        ```yaml
@@ -44,6 +44,12 @@
        notify_method: werobot
        werobot_webhook: https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=077...5f4 # 企业微信群机器人的 webhook 地址
        werobot_chatid:  # 企业微信群机器人推送通知的 chatid，没有可留空
+       ```
+     - notifyx: ([https://www.notifyx.cn](https://www.notifyx.cn))
+       ```yaml
+       notify_method: notifyx
+       notifyx_key: YOUR_NOTIFYX_KEY # NotifyX 的推送 Key（必填，到 https://www.notifyx.cn 注册获取）
+       notifyx_team: YOUR_TEAM       # NotifyX 推送目标团队（可选，留空则推送到默认团队）
        ```
 - 启动 Docker 容器： 
 
