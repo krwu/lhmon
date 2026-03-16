@@ -3,8 +3,8 @@ module lighthouse-monitor
 go 1.18
 
 require (
-	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common v1.0.409
-	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/lighthouse v1.0.409
+	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common v1.3.57
+	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/lighthouse v1.3.52
 	go.uber.org/automaxprocs v1.5.1
 	go.uber.org/zap v1.21.0
 	gopkg.in/yaml.v3 v3.0.1
