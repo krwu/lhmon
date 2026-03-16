@@ -32,7 +32,7 @@
       regions: [ "ap-guangzhou" ] # 要监控的区域
   ```
   **配置文件特别说明：**
-  1. `notify_method` 目前可选的值有：sct(Server酱)、werobot（企业微信群机器人）、notifyx（NotifyX），三选一
+  1. `notify_method` 目前可选的值有：sct(Server酱)、werobot（企业微信群机器人）、notifyx（NotifyX）、telegram（Telegram机器人），四选一
   2. 根据 `notify_method` 的不同，需要配置做对应的配置：
      - sct: ([https://sct.ftqq.com/](https://sct.ftqq.com/r/13200))
        ```yaml
@@ -50,6 +50,12 @@
        notify_method: notifyx
        notifyx_key: YOUR_NOTIFYX_KEY # NotifyX 的推送 Key（必填，到 https://www.notifyx.cn 注册获取）
        notifyx_team: YOUR_TEAM       # NotifyX 推送目标团队（可选，留空则推送到默认团队）
+       ```
+     - telegram:
+       ```yaml
+       notify_method: telegram
+       telegram_bot_token: 123456:ABC-DEF... # Telegram 机器人的 Bot Token（通过 @BotFather 创建）
+       telegram_user_id: "987654321"         # 接收通知的 Telegram 用户 ID（可通过 @userinfobot 获取）
        ```
 - 启动 Docker 容器： 
 

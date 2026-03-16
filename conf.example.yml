@@ -1,10 +1,12 @@
-notify_method: sct # 通知方式，支持：sct=Server酱|werobot=企业微信机器人|notifyx=NotifyX
+notify_method: sct # 通知方式，支持：sct=Server酱|werobot=企业微信机器人|notifyx=NotifyX|telegram=Telegram
 # 以下请根据选择的通知方式进行对应配置
 sct_key: SERVER_SEND_KEY # Server酱的 SendKey
 # werobot_webhook: https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=KEY # 企业微信机器人的 webhook 地址
 # werobot_chatid: CHATID # 企业微信机器人的 chatid，可以为空
 # notifyx_key: YOUR_NOTIFYX_KEY # NotifyX 的推送 Key（必填）
 # notifyx_team: YOUR_TEAM # NotifyX 推送目标团队（可选）
+# telegram_bot_token: YOUR_BOT_TOKEN # Telegram 机器人的 Bot Token
+# telegram_user_id: YOUR_USER_ID # Telegram 接收通知的用户 ID
 
 check_interval: 30 # 检查间隔，单位：秒
 accounts: # 要检查的账户列表

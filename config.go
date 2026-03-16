@@ -11,22 +11,25 @@ import (
 type NotifyType string
 
 const (
-	NotifySCT     NotifyType = "sct"
-	NotifyWERobot NotifyType = "werobot"
-	NotifyNotifyx NotifyType = "notifyx"
+	NotifySCT      NotifyType = "sct"
+	NotifyWERobot  NotifyType = "werobot"
+	NotifyNotifyx  NotifyType = "notifyx"
+	NotifyTelegram NotifyType = "telegram"
 )
 
 type Config struct {
-	WarnRate       float64    `yaml:"warn_rate"`
-	ShutdownRate   float64    `yaml:"shutdown_rate"`
-	CheckInterval  int64      `yaml:"check_interval"`
-	NotifyType     NotifyType `yaml:"notify_method"`
-	SCTKey         string     `yaml:"sct_key"`
-	WERobotWebhook string     `yaml:"werobot_webhook"`
-	WERobotChatID  string     `yaml:"werobot_chatid"`
-	NotifyxKey     string     `yaml:"notifyx_key"`
-	NotifyxTeam    string     `yaml:"notifyx_team"`
-	Accounts       []account  `yaml:"accounts"`
+	WarnRate         float64    `yaml:"warn_rate"`
+	ShutdownRate     float64    `yaml:"shutdown_rate"`
+	CheckInterval    int64      `yaml:"check_interval"`
+	NotifyType       NotifyType `yaml:"notify_method"`
+	SCTKey           string     `yaml:"sct_key"`
+	WERobotWebhook   string     `yaml:"werobot_webhook"`
+	WERobotChatID    string     `yaml:"werobot_chatid"`
+	NotifyxKey       string     `yaml:"notifyx_key"`
+	NotifyxTeam      string     `yaml:"notifyx_team"`
+	TelegramBotToken string     `yaml:"telegram_bot_token"`
+	TelegramUserID   string     `yaml:"telegram_user_id"`
+	Accounts         []account  `yaml:"accounts"`
 }
 
 type account struct {
