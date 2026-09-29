@@ -12,15 +12,15 @@ func init() {
 }
 
 func Fatalf(format string, v ...any) {
-	sugar.Fatalf(format, v)
+	sugar.Fatalf(format, v...)
 }
 
 func Printf(format string, v ...any) {
-	sugar.Infof(format, v)
+	sugar.Infof(format, v...)
 }
 
 func Errorf(format string, v ...any) {
-	sugar.Errorf(format, v)
+	sugar.Errorf(format, v...)
 }
 
 func Logger() *zap.Logger {

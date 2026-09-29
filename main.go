@@ -97,7 +97,7 @@ func cronTask() {
 	}
 
 	if len(results) > 0 {
-		log.Printf(strings.Join(results, "\n"))
+		log.Printf("%s", strings.Join(results, "\n"))
 		notify("%s\n", strings.Join(results, "\n\n"))
 	}
 }
@@ -124,7 +124,7 @@ func sslCronTask() {
 		results = append(results, str)
 	}
 	if len(results) > 0 {
-		log.Printf(strings.Join(results, "\n"))
+		log.Printf("%s", strings.Join(results, "\n"))
 		notifySSL("%s\n", strings.Join(results, "\n\n"))
 	}
 }

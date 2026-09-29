@@ -103,8 +103,9 @@
 
   行为简述：
   1. 找出**已过期**（状态码 3）以及**即将过期**的证书；
-  2. 通过腾讯云关联资源异步查询确认是否绑定 CLB/CDN/WAF 等资源；
-  3. **仅当无关联**且 `auto_delete=true`、`dry_run=false` 时调用删除；
+  2. 批量发起关联资源异步查询（每批最多 100 张），确认是否绑定 CLB/CDN/WAF/TEO 等；
+  3. **仅当无关联**且 `auto_delete=true`、`dry_run=false` 时逐张调用 `DeleteCertificate`；
+  4. 通知按「有资源跳过删除 / 成功删除 / 失败删除」分段列出；
   4. 查询失败或超时时**不删除**，只告警。
 
   实现上使用腾讯云 Go SDK 的 Common Client（只依赖 `tencentcloud/common`，不引入 `tencentcloud/ssl` 产品包）。

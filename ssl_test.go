@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strings"
 	"testing"
 	"time"
 )
@@ -19,14 +20,7 @@ func TestParseCertEndTime(t *testing.T) {
 }
 
 func TestCollectBoundTypes(t *testing.T) {
-	types := collectBoundTypes([]struct {
-		ResourceType             string `json:"ResourceType"`
-		BindResourceRegionResult []struct {
-			Region     string `json:"Region"`
-			TotalCount uint64 `json:"TotalCount"`
-			Error      string `json:"Error"`
-		} `json:"BindResourceRegionResult"`
-	}{
+	types := collectBoundTypes([]bindResourceTypeResult{
 		{
 			ResourceType: "clb",
 			BindResourceRegionResult: []struct {
@@ -99,5 +93,43 @@ func TestToSSLCertificate(t *testing.T) {
 	})
 	if c.CertificateID != "cid" || c.Status != 3 || !c.IsExpiring {
 		t.Fatalf("%+v", c)
+	}
+}
+
+func TestFormatSSLAccountNotify(t *testing.T) {
+	if formatSSLAccountNotify("a", nil, nil, nil) != "" {
+		t.Fatal("empty should be empty")
+	}
+	msg := formatSSLAccountNotify("acc",
+		[]string{"证书[c1/x] 即将过期，仍关联[teo]，跳过删除"},
+		[]string{"证书[c2/y] 已过期，无关联，已删除"},
+		[]string{"证书[c3/z] 删除失败：boom"},
+	)
+	for _, want := range []string{
+		"[SSL] 账号[acc]",
+		"有资源跳过删除：",
+		"成功删除：",
+		"失败删除：",
+		"- 证书[c1/x]",
+		"- 证书[c2/y]",
+		"- 证书[c3/z]",
+	} {
+		if !strings.Contains(msg, want) {
+			t.Fatalf("missing %q in:\n%s", want, msg)
+		}
+	}
+	// empty sections omitted
+	msg2 := formatSSLAccountNotify("acc", nil, []string{"only"}, nil)
+	if strings.Contains(msg2, "有资源跳过删除") || strings.Contains(msg2, "失败删除") {
+		t.Fatal(msg2)
+	}
+	if !strings.Contains(msg2, "成功删除：") {
+		t.Fatal(msg2)
+	}
+}
+
+func TestBindQueryBatchSize(t *testing.T) {
+	if bindQueryBatchSize != 100 {
+		t.Fatalf("batch size=%d", bindQueryBatchSize)
 	}
 }

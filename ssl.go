@@ -3,6 +3,8 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
+	"slices"
 	"strings"
 	"time"
 
@@ -22,12 +24,13 @@ const (
 	bindTaskOK        = 1
 	bindTaskErr       = 2
 
-	certEndTimeLayout = "2006-01-02 15:04:05"
+	certEndTimeLayout  = "2006-01-02 15:04:05"
+	bindQueryBatchSize = 100
 )
 
 type SSLClient interface {
 	ListCandidates(expireDays *int) ([]SSLCertificate, error)
-	BoundResourceTypes(certificateID string) ([]string, error)
+	BoundResourceTypesBatch(certificateIDs []string) map[string]bindQueryResult
 	DeleteCertificate(certificateID string) error
 }
 
@@ -39,6 +42,11 @@ type SSLCertificate struct {
 	CertEndTime   string
 	IsExpiring    bool
 	Reason        string // expired | expiring
+}
+
+type bindQueryResult struct {
+	Types []string
+	Err   error
 }
 
 type sslClient struct {
@@ -223,20 +231,22 @@ type createBindTaskResp struct {
 	} `json:"Response"`
 }
 
+type bindResourceTypeResult struct {
+	ResourceType             string `json:"ResourceType"`
+	BindResourceRegionResult []struct {
+		Region     string `json:"Region"`
+		TotalCount uint64 `json:"TotalCount"`
+		Error      string `json:"Error"`
+	} `json:"BindResourceRegionResult"`
+}
+
 type describeBindResultResp struct {
 	Response struct {
 		SyncTaskBindResourceResult []struct {
-			TaskID             string `json:"TaskId"`
-			Status             uint64 `json:"Status"`
-			BindResourceResult []struct {
-				ResourceType             string `json:"ResourceType"`
-				BindResourceRegionResult []struct {
-					Region     string `json:"Region"`
-					TotalCount uint64 `json:"TotalCount"`
-					Error      string `json:"Error"`
-				} `json:"BindResourceRegionResult"`
-			} `json:"BindResourceResult"`
-			Error *struct {
+			TaskID             string                   `json:"TaskId"`
+			Status             uint64                   `json:"Status"`
+			BindResourceResult []bindResourceTypeResult `json:"BindResourceResult"`
+			Error              *struct {
 				Code    string `json:"Code"`
 				Message string `json:"Message"`
 			} `json:"Error"`
@@ -245,73 +255,115 @@ type describeBindResultResp struct {
 	} `json:"Response"`
 }
 
-// BoundResourceTypes returns non-empty resource type names if the certificate
-// is still associated with cloud resources. On query failure/timeout it returns
-// an error so callers must NOT delete.
-func (c *sslClient) BoundResourceTypes(certificateID string) ([]string, error) {
+// BoundResourceTypesBatch queries cloud-resource associations for many
+// certificates (CreateCertificateBindResourceSyncTask batches of up to 100).
+// On query failure/timeout the certificate's Err is set so callers must NOT delete.
+func (c *sslClient) BoundResourceTypesBatch(certificateIDs []string) map[string]bindQueryResult {
+	out := make(map[string]bindQueryResult, len(certificateIDs))
+	for start := 0; start < len(certificateIDs); start += bindQueryBatchSize {
+		end := min(start+bindQueryBatchSize, len(certificateIDs))
+		c.queryBindBatch(certificateIDs[start:end], out)
+	}
+	return out
+}
+
+func (c *sslClient) queryBindBatch(ids []string, out map[string]bindQueryResult) {
 	isCache := uint64(0)
 	if c.cfg.bindUseCache() {
 		isCache = 1
 	}
 	var created createBindTaskResp
 	err := c.call("CreateCertificateBindResourceSyncTask", map[string]any{
-		"CertificateIds": []string{certificateID},
+		"CertificateIds": ids,
 		"IsCache":        isCache,
 	}, &created)
 	if err != nil {
-		return nil, err
+		for _, id := range ids {
+			out[id] = bindQueryResult{Err: err}
+		}
+		return
 	}
-	if len(created.Response.CertTaskIds) == 0 || created.Response.CertTaskIds[0].TaskID == "" {
-		return nil, fmt.Errorf("empty bind-resource task for certificate %s", certificateID)
+
+	pending := make(map[string]string, len(ids)) // taskID -> certificateID
+	have := make(map[string]struct{}, len(ids))
+	for _, t := range created.Response.CertTaskIds {
+		if t.CertID == "" || t.TaskID == "" {
+			continue
+		}
+		pending[t.TaskID] = t.CertID
+		have[t.CertID] = struct{}{}
 	}
-	taskID := created.Response.CertTaskIds[0].TaskID
+	for _, id := range ids {
+		if _, ok := have[id]; !ok {
+			out[id] = bindQueryResult{Err: fmt.Errorf("empty bind-resource task for certificate %s", id)}
+		}
+	}
+	if len(pending) == 0 {
+		return
+	}
 
 	deadline := time.Now().Add(time.Duration(c.cfg.bindTaskTimeout()) * time.Second)
-	for {
+	for len(pending) > 0 {
+		taskIDs := slices.Collect(maps.Keys(pending))
 		var result describeBindResultResp
 		err := c.call("DescribeCertificateBindResourceTaskResult", map[string]any{
-			"TaskIds": []string{taskID},
+			"TaskIds": taskIDs,
 		}, &result)
 		if err != nil {
-			return nil, err
+			for _, certID := range pending {
+				out[certID] = bindQueryResult{Err: err}
+			}
+			return
 		}
-		if len(result.Response.SyncTaskBindResourceResult) == 0 {
-			if time.Now().After(deadline) {
-				return nil, fmt.Errorf("bind-resource task %s timed out with empty result", taskID)
+
+		progressed := false
+		for _, item := range result.Response.SyncTaskBindResourceResult {
+			certID, ok := pending[item.TaskID]
+			if !ok {
+				continue
 			}
-			time.Sleep(2 * time.Second)
-			continue
+			switch item.Status {
+			case bindTaskQuerying:
+				if time.Now().After(deadline) {
+					out[certID] = bindQueryResult{Err: fmt.Errorf("bind-resource task %s timed out while querying", item.TaskID)}
+					delete(pending, item.TaskID)
+					progressed = true
+				}
+			case bindTaskErr:
+				msg := "unknown error"
+				if item.Error != nil {
+					msg = item.Error.Code + ": " + item.Error.Message
+				}
+				out[certID] = bindQueryResult{Err: fmt.Errorf("bind-resource task %s failed: %s", item.TaskID, msg)}
+				delete(pending, item.TaskID)
+				progressed = true
+			case bindTaskOK:
+				out[certID] = bindQueryResult{Types: collectBoundTypes(item.BindResourceResult)}
+				delete(pending, item.TaskID)
+				progressed = true
+			default:
+				out[certID] = bindQueryResult{Err: fmt.Errorf("bind-resource task %s unknown status %d", item.TaskID, item.Status)}
+				delete(pending, item.TaskID)
+				progressed = true
+			}
 		}
-		item := result.Response.SyncTaskBindResourceResult[0]
-		switch item.Status {
-		case bindTaskQuerying:
-			if time.Now().After(deadline) {
-				return nil, fmt.Errorf("bind-resource task %s timed out while querying", taskID)
+
+		if len(pending) == 0 {
+			return
+		}
+		if time.Now().After(deadline) {
+			for taskID, certID := range pending {
+				out[certID] = bindQueryResult{Err: fmt.Errorf("bind-resource task %s timed out with empty result", taskID)}
 			}
+			return
+		}
+		if !progressed {
 			time.Sleep(2 * time.Second)
-			continue
-		case bindTaskErr:
-			msg := "unknown error"
-			if item.Error != nil {
-				msg = item.Error.Code + ": " + item.Error.Message
-			}
-			return nil, fmt.Errorf("bind-resource task %s failed: %s", taskID, msg)
-		case bindTaskOK:
-			return collectBoundTypes(item.BindResourceResult), nil
-		default:
-			return nil, fmt.Errorf("bind-resource task %s unknown status %d", taskID, item.Status)
 		}
 	}
 }
 
-func collectBoundTypes(results []struct {
-	ResourceType             string `json:"ResourceType"`
-	BindResourceRegionResult []struct {
-		Region     string `json:"Region"`
-		TotalCount uint64 `json:"TotalCount"`
-		Error      string `json:"Error"`
-	} `json:"BindResourceRegionResult"`
-}) []string {
+func collectBoundTypes(results []bindResourceTypeResult) []string {
 	var types []string
 	seen := map[string]struct{}{}
 	for _, r := range results {
@@ -379,6 +431,32 @@ func reasonLabel(reason string) string {
 	}
 }
 
+func certLine(cert SSLCertificate) string {
+	return fmt.Sprintf("证书[%s/%s] %s", cert.CertificateID, certDisplayName(cert), reasonLabel(cert.Reason))
+}
+
+func formatSSLAccountNotify(account string, skipped, deleted, failed []string) string {
+	if len(skipped)+len(deleted)+len(failed) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "[SSL] 账号[%s]", account)
+	appendSSLSection(&b, "有资源跳过删除", skipped)
+	appendSSLSection(&b, "成功删除", deleted)
+	appendSSLSection(&b, "失败删除", failed)
+	return b.String()
+}
+
+func appendSSLSection(b *strings.Builder, title string, lines []string) {
+	if len(lines) == 0 {
+		return
+	}
+	fmt.Fprintf(b, "\n%s：", title)
+	for _, line := range lines {
+		fmt.Fprintf(b, "\n- %s", line)
+	}
+}
+
 func checkSSLAccount(a account, cfg SSLConfig, ch chan<- string) {
 	client := NewSSLClient(a.SecretID, a.SecretKey, cfg)
 	certs, err := client.ListCandidates(cfg.ExpireDays)
@@ -387,7 +465,9 @@ func checkSSLAccount(a account, cfg SSLConfig, ch chan<- string) {
 			zap.String("帐号", a.Name),
 			zap.Error(err),
 		)
-		ch <- fmt.Sprintf("- [SSL] 账号[%s] 拉取证书失败：%v", a.Name, err)
+		ch <- formatSSLAccountNotify(a.Name, nil, nil, []string{
+			fmt.Sprintf("拉取证书失败：%v", err),
+		})
 		return
 	}
 	if len(certs) == 0 {
@@ -395,6 +475,8 @@ func checkSSLAccount(a account, cfg SSLConfig, ch chan<- string) {
 		return
 	}
 
+	ids := make([]string, 0, len(certs))
+	byID := make(map[string]SSLCertificate, len(certs))
 	for _, cert := range certs {
 		logger.Info("ssl candidate",
 			zap.String("帐号", a.Name),
@@ -403,32 +485,41 @@ func checkSSLAccount(a account, cfg SSLConfig, ch chan<- string) {
 			zap.String("原因", cert.Reason),
 			zap.String("到期", cert.CertEndTime),
 		)
+		ids = append(ids, cert.CertificateID)
+		byID[cert.CertificateID] = cert
+	}
 
-		bound, err := client.BoundResourceTypes(cert.CertificateID)
-		if err != nil {
+	bindResults := client.BoundResourceTypesBatch(ids)
+
+	var skipped, deleted, failed []string
+	for _, id := range ids {
+		cert := byID[id]
+		line := certLine(cert)
+		br, ok := bindResults[id]
+		if !ok {
+			failed = append(failed, fmt.Sprintf("%s，关联资源查询失败（跳过删除）：missing bind result", line))
+			continue
+		}
+		if br.Err != nil {
 			logger.Error("ssl bind check failed",
 				zap.String("帐号", a.Name),
 				zap.String("证书", cert.CertificateID),
-				zap.Error(err),
+				zap.Error(br.Err),
 			)
-			ch <- fmt.Sprintf("- [SSL] 账号[%s] 证书[%s/%s] %s，关联资源查询失败（跳过删除）：%v",
-				a.Name, cert.CertificateID, certDisplayName(cert), reasonLabel(cert.Reason), err)
+			failed = append(failed, fmt.Sprintf("%s，关联资源查询失败（跳过删除）：%v", line, br.Err))
 			continue
 		}
-		if len(bound) > 0 {
-			ch <- fmt.Sprintf("- [SSL] 账号[%s] 证书[%s/%s] %s，仍关联[%s]，跳过删除",
-				a.Name, cert.CertificateID, certDisplayName(cert), reasonLabel(cert.Reason), strings.Join(bound, ","))
+		if len(br.Types) > 0 {
+			skipped = append(skipped, fmt.Sprintf("%s，仍关联[%s]，跳过删除", line, strings.Join(br.Types, ",")))
 			continue
 		}
 
 		if !cfg.autoDelete() {
-			ch <- fmt.Sprintf("- [SSL] 账号[%s] 证书[%s/%s] %s，无关联，auto_delete=false，仅告警",
-				a.Name, cert.CertificateID, certDisplayName(cert), reasonLabel(cert.Reason))
+			failed = append(failed, fmt.Sprintf("%s，无关联，auto_delete=false，未删除", line))
 			continue
 		}
 		if cfg.dryRun() {
-			ch <- fmt.Sprintf("- [SSL] 账号[%s] 证书[%s/%s] %s，无关联，dry_run=true，模拟删除",
-				a.Name, cert.CertificateID, certDisplayName(cert), reasonLabel(cert.Reason))
+			deleted = append(deleted, fmt.Sprintf("%s，无关联，dry_run=true，模拟删除", line))
 			continue
 		}
 
@@ -438,11 +529,14 @@ func checkSSLAccount(a account, cfg SSLConfig, ch chan<- string) {
 				zap.String("证书", cert.CertificateID),
 				zap.Error(err),
 			)
-			ch <- fmt.Sprintf("- [SSL] 账号[%s] 证书[%s/%s] 删除失败：%v",
-				a.Name, cert.CertificateID, certDisplayName(cert), err)
+			failed = append(failed, fmt.Sprintf("%s，删除失败：%v", line, err))
 			continue
 		}
-		ch <- fmt.Sprintf("- [SSL] 账号[%s] 证书[%s/%s] %s，无关联，已删除",
-			a.Name, cert.CertificateID, certDisplayName(cert), reasonLabel(cert.Reason))
+		deleted = append(deleted, fmt.Sprintf("%s，无关联，已删除", line))
+	}
+
+	msg := formatSSLAccountNotify(a.Name, skipped, deleted, failed)
+	if msg != "" {
+		ch <- msg
 	}
 }
