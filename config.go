@@ -1,10 +1,9 @@
 package main
 
 import (
-	"io/ioutil"
+	"os"
 
 	"go.uber.org/zap"
-
 	"gopkg.in/yaml.v3"
 )
 
@@ -30,6 +29,55 @@ type Config struct {
 	TelegramBotToken string     `yaml:"telegram_bot_token"`
 	TelegramUserID   string     `yaml:"telegram_user_id"`
 	Accounts         []account  `yaml:"accounts"`
+	SSL              SSLConfig  `yaml:"ssl"`
+}
+
+// SSLConfig controls SSL certificate monitoring and cleanup.
+// expire_days: optional. When set, certificates with remaining life <= this many days
+// are treated as expiring. When omitted, official FilterExpiring (~30 days) is used.
+type SSLConfig struct {
+	Enabled         bool  `yaml:"enabled"`
+	AutoDelete      *bool `yaml:"auto_delete"`
+	DryRun          *bool `yaml:"dry_run"`
+	ExpireDays      *int  `yaml:"expire_days"`
+	CheckInterval   int64 `yaml:"check_interval"`
+	BindTaskTimeout int64 `yaml:"bind_task_timeout"`
+	BindUseCache    *bool `yaml:"bind_use_cache"`
+}
+
+func (c SSLConfig) autoDelete() bool {
+	if c.AutoDelete == nil {
+		return true
+	}
+	return *c.AutoDelete
+}
+
+func (c SSLConfig) dryRun() bool {
+	if c.DryRun == nil {
+		return true
+	}
+	return *c.DryRun
+}
+
+func (c SSLConfig) bindUseCache() bool {
+	if c.BindUseCache == nil {
+		return true
+	}
+	return *c.BindUseCache
+}
+
+func (c SSLConfig) checkInterval() int64 {
+	if c.CheckInterval <= 0 {
+		return 86400
+	}
+	return c.CheckInterval
+}
+
+func (c SSLConfig) bindTaskTimeout() int64 {
+	if c.BindTaskTimeout <= 0 {
+		return 120
+	}
+	return c.BindTaskTimeout
 }
 
 type account struct {
@@ -41,7 +89,7 @@ type account struct {
 
 func InitConfig(file string) {
 	var conf Config
-	yamlByte, err := ioutil.ReadFile(file)
+	yamlByte, err := os.ReadFile(file)
 	if err != nil {
 		panic(err)
 	}

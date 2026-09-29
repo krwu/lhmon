@@ -15,7 +15,6 @@ import (
 	"lighthouse-monitor/log"
 	"lighthouse-monitor/notifier"
 
-	_ "go.uber.org/automaxprocs/maxprocs"
 	"go.uber.org/zap"
 )
 
@@ -36,21 +35,46 @@ func main() {
 	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
 		path = "/etc/lhmon/conf.yml"
 	}
-	file := flag.String("conf", "/etc/lhmon/conf.yml", "配置文件路径")
+	file := flag.String("conf", path, "配置文件路径")
 	flag.Parse()
 	if file == nil || *file == "" {
 		log.Fatalf("必须指定配置文件")
 	}
 
 	InitConfig(*file)
-	logger.Info("started", zap.Int("帐号数", len(Conf.Accounts)))
+	logger.Info("started",
+		zap.Int("帐号数", len(Conf.Accounts)),
+		zap.Bool("ssl_enabled", Conf.SSL.Enabled),
+	)
+
 	go cronTask()
+	if Conf.SSL.Enabled {
+		go sslCronTask()
+	}
 
 	interval := time.Duration(Conf.CheckInterval) * time.Second
+	if interval <= 0 {
+		interval = 30 * time.Second
+	}
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
-	for range ticker.C {
-		go cronTask()
+
+	var sslTicker *time.Ticker
+	var sslC <-chan time.Time
+	if Conf.SSL.Enabled {
+		sslInterval := time.Duration(Conf.SSL.checkInterval()) * time.Second
+		sslTicker = time.NewTicker(sslInterval)
+		defer sslTicker.Stop()
+		sslC = sslTicker.C
+	}
+
+	for {
+		select {
+		case <-ticker.C:
+			go cronTask()
+		case <-sslC:
+			go sslCronTask()
+		}
 	}
 }
 
@@ -58,9 +82,9 @@ func cronTask() {
 	var wg sync.WaitGroup
 	ch := make(chan string, 1000)
 	for _, a := range Conf.Accounts {
-		wg.Add(1)
-		ac := a
-		go checkTraffic(ac, ch, &wg)
+		wg.Go(func() {
+			checkTraffic(a, ch)
+		})
 	}
 	go func() {
 		wg.Wait()
@@ -78,8 +102,34 @@ func cronTask() {
 	}
 }
 
-func checkTraffic(a account, ch chan string, wg *sync.WaitGroup) {
-	defer wg.Done()
+func sslCronTask() {
+	if !Conf.SSL.Enabled {
+		return
+	}
+	var wg sync.WaitGroup
+	ch := make(chan string, 1000)
+	cfg := Conf.SSL
+	for _, a := range Conf.Accounts {
+		wg.Go(func() {
+			checkSSLAccount(a, cfg, ch)
+		})
+	}
+	go func() {
+		wg.Wait()
+		close(ch)
+	}()
+
+	var results []string
+	for str := range ch {
+		results = append(results, str)
+	}
+	if len(results) > 0 {
+		log.Printf(strings.Join(results, "\n"))
+		notifySSL("%s\n", strings.Join(results, "\n\n"))
+	}
+}
+
+func checkTraffic(a account, ch chan string) {
 	id := a.SecretID
 	key := a.SecretKey
 	for _, r := range a.Regions {
@@ -111,9 +161,16 @@ func checkTraffic(a account, ch chan string, wg *sync.WaitGroup) {
 	}
 }
 
-func notify(format string, args ...interface{}) {
+func notify(format string, args ...any) {
+	sendNotify("腾讯云轻量监控通知", format, args...)
+}
+
+func notifySSL(format string, args ...any) {
+	sendNotify("腾讯云 SSL 证书监控通知", format, args...)
+}
+
+func sendNotify(title, format string, args ...any) {
 	desp := fmt.Sprintf(format, args...)
-	title := "腾讯云轻量监控通知"
 	message := desp
 	var client notifier.Notifier
 	switch Conf.NotifyType {
@@ -164,5 +221,5 @@ func calcTraffic(bytes int64) string {
 }
 
 func init() {
-	maxprocs.Set(maxprocs.Logger(func(string, ...interface{}) {}))
+	maxprocs.Set(maxprocs.Logger(func(string, ...any) {}))
 }
