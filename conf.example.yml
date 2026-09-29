@@ -8,13 +8,23 @@ sct_key: SERVER_SEND_KEY # Server酱的 SendKey
 # telegram_bot_token: YOUR_BOT_TOKEN # Telegram 机器人的 Bot Token
 # telegram_user_id: YOUR_USER_ID # Telegram 接收通知的用户 ID
 
-check_interval: 30 # 检查间隔，单位：秒
+check_interval: 30 # 流量检查间隔，单位：秒
 accounts: # 要检查的账户列表
   - name: "账户一" # 账户名称
     secret_id: "secret_id_1" # 该帐户的 secretId
     secret_key: "secret_key_1" # 该账户的 secretKey
-    regions: [ "ap-hongkong", "ap-guangzhou" ] # 要监控的区域
+    regions: [ "ap-hongkong", "ap-guangzhou" ] # 轻量监控区域（SSL 不依赖 region）
   - name: "账户二" # 账户名称
     secret_id: "secret_id_2" # 该帐户的 secretId
     secret_key: "secret_key_2" # 该账户的 secretKey
     regions: [ "ap-guangzhou" ] # 要监控的区域
+
+# SSL 证书清理（账号级，与 regions 无关）
+ssl:
+  enabled: false          # 总开关，显式打开后才巡检 SSL
+  auto_delete: true       # 无关联资源时自动删除（默认 true）
+  dry_run: true           # true=走完全流程但不真实删除（默认 true，联调安全）
+  # expire_days: 30       # 可选；设置后按 CertEndTime 剩余天数判定即将过期。省略则用官方 FilterExpiring（约 30 天）
+  check_interval: 86400   # SSL 巡检间隔（秒），默认每天一次，与流量间隔解耦
+  # bind_task_timeout: 120
+  # bind_use_cache: true

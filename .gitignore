@@ -1,2 +1,4 @@
 conf.yml
 .idea/
+conf.local.yml
+lhmon

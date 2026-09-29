@@ -11,6 +11,11 @@
     - lighthouse:DescribeInstances 用于读取轻量云实例信息
     - lighthouse:DescribeInstancesTrafficPackages 用于读取轻量云流量包信息
     - lighthouse:StopInstances 用于自动关机（如果不需要自动关机功能，可以不授予此项权限，见下面的配置说明）
+    - 若启用 SSL 证书清理，另需：
+      - ssl:DescribeCertificates
+      - ssl:CreateCertificateBindResourceSyncTask
+      - ssl:DescribeCertificateBindResourceTaskResult
+      - ssl:DeleteCertificate（仅告警不删时可省略）
 
 - 配置文件
   首先要准备一个 yaml 配置文件，格式如下： 
@@ -82,7 +87,32 @@
   ```
 - 以上命令或配置中的 `${yaml配置文件路径}` 请自行替换为**自己的路径**
 
+
+- SSL 证书自动清理（可选）
+
+  在配置中增加 `ssl` 段即可（与流量监控共用 `accounts` 密钥与通知渠道）：
+
+  ```yaml
+  ssl:
+    enabled: false          # 总开关
+    auto_delete: true       # 无关联则删除
+    dry_run: true           # 默认 true：模拟删除，确认无误后再改为 false
+    # expire_days: 30       # 可选；省略则用官方「即将过期」过滤（约 30 天）
+    check_interval: 86400   # 默认每天一次
+  ```
+
+  行为简述：
+  1. 找出**已过期**（状态码 3）以及**即将过期**的证书；
+  2. 批量发起关联资源异步查询（每批最多 100 张），确认是否绑定 CLB/CDN/WAF/TEO 等；
+  3. **仅当无关联**且 `auto_delete=true`、`dry_run=false` 时逐张调用 `DeleteCertificate`；
+  4. 通知按「有资源跳过删除 / 成功删除 / 失败删除」分段列出；
+  4. 查询失败或超时时**不删除**，只告警。
+
+  实现上使用腾讯云 Go SDK 的 Common Client（只依赖 `tencentcloud/common`，不引入 `tencentcloud/ssl` 产品包）。
+
 ## 开发计划：
 
+- [x] SSL 证书过期/即将过期清理（无关联才删；Common Client）
 - [ ] 支持企业微信机器人直接推送通知到企业微信
 - [ ] 提供 web 界面进行管理配置和查看流量使用历史记录
+- [ ] 将 lighthouse 调用迁移到 Common Client，去掉产品包依赖
