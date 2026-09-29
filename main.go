@@ -170,28 +170,21 @@ func notifySSL(format string, args ...any) {
 }
 
 func sendNotify(title, format string, args ...any) {
-	desp := fmt.Sprintf(format, args...)
-	message := desp
-	var client notifier.Notifier
-	switch Conf.NotifyType {
-	case NotifySCT:
-		client = notifier.NewSCT(Conf.SCTKey)
-	case NotifyWERobot:
-		client = notifier.NewWERobot(Conf.WERobotWebhook, Conf.WERobotChatID)
-	case NotifyNotifyx:
-		client = notifier.NewNotifyx(Conf.NotifyxKey, Conf.NotifyxTeam)
-	case NotifyTelegram:
-		client = notifier.NewTelegram(Conf.TelegramBotToken, Conf.TelegramUserID)
-	default:
-		log.Errorf("%s：%v", "不支持的通知渠道", Conf.NotifyType)
-		return
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	err := client.Send(ctx, title, message)
+	message := fmt.Sprintf(format, args...)
+	clients, err := BuildNotifiers(Conf)
 	if err != nil {
 		log.Errorf("%v", err)
 		return
+	}
+	client := notifier.NewMulti(clients...)
+	timeout := 5 * time.Second
+	if client.Len() > 1 {
+		timeout = 15 * time.Second
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	if err := client.Send(ctx, title, message); err != nil {
+		log.Errorf("%v", err)
 	}
 }
 

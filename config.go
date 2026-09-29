@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"strings"
 
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
@@ -14,7 +15,87 @@ const (
 	NotifyWERobot  NotifyType = "werobot"
 	NotifyNotifyx  NotifyType = "notifyx"
 	NotifyTelegram NotifyType = "telegram"
+	NotifySMTP     NotifyType = "smtp"
+	NotifySendGrid NotifyType = "sendgrid"
+	NotifyMailgun  NotifyType = "mailgun"
 )
+
+// StringList unmarshals a YAML string or sequence of strings.
+type StringList []string
+
+func (s *StringList) UnmarshalYAML(value *yaml.Node) error {
+	switch value.Kind {
+	case yaml.ScalarNode:
+		v := strings.TrimSpace(value.Value)
+		if v == "" {
+			*s = nil
+			return nil
+		}
+		*s = []string{v}
+		return nil
+	case yaml.SequenceNode:
+		var list []string
+		if err := value.Decode(&list); err != nil {
+			return err
+		}
+		*s = list
+		return nil
+	case yaml.AliasNode:
+		if value.Alias != nil {
+			return s.UnmarshalYAML(value.Alias)
+		}
+	}
+	return nil
+}
+
+type SCTChannel struct {
+	Enabled bool   `yaml:"enabled"`
+	Key     string `yaml:"key"`
+}
+
+type WERobotChannel struct {
+	Enabled bool   `yaml:"enabled"`
+	Webhook string `yaml:"webhook"`
+	ChatID  string `yaml:"chatid"`
+}
+
+type NotifyxChannel struct {
+	Enabled bool   `yaml:"enabled"`
+	Key     string `yaml:"key"`
+	Team    string `yaml:"team"`
+}
+
+type TelegramChannel struct {
+	Enabled  bool   `yaml:"enabled"`
+	BotToken string `yaml:"bot_token"`
+	UserID   string `yaml:"user_id"`
+}
+
+type SMTPChannel struct {
+	Enabled  bool       `yaml:"enabled"`
+	Host     string     `yaml:"host"`
+	Port     int        `yaml:"port"`
+	Username string     `yaml:"username"`
+	Password string     `yaml:"password"`
+	From     string     `yaml:"from"`
+	To       StringList `yaml:"to"`
+}
+
+type SendGridChannel struct {
+	Enabled bool       `yaml:"enabled"`
+	APIKey  string     `yaml:"api_key"`
+	From    string     `yaml:"from"`
+	To      StringList `yaml:"to"`
+}
+
+type MailgunChannel struct {
+	Enabled bool       `yaml:"enabled"`
+	Domain  string     `yaml:"domain"`
+	APIKey  string     `yaml:"api_key"`
+	From    string     `yaml:"from"`
+	To      StringList `yaml:"to"`
+	BaseURL string     `yaml:"base_url"` // optional; default https://api.mailgun.net (EU: https://api.eu.mailgun.net)
+}
 
 type Config struct {
 	WarnRate         float64    `yaml:"warn_rate"`
@@ -28,8 +109,17 @@ type Config struct {
 	NotifyxTeam      string     `yaml:"notifyx_team"`
 	TelegramBotToken string     `yaml:"telegram_bot_token"`
 	TelegramUserID   string     `yaml:"telegram_user_id"`
-	Accounts         []account  `yaml:"accounts"`
-	SSL              SSLConfig  `yaml:"ssl"`
+
+	SCT      *SCTChannel      `yaml:"sct"`
+	WERobot  *WERobotChannel  `yaml:"werobot"`
+	Notifyx  *NotifyxChannel  `yaml:"notifyx"`
+	Telegram *TelegramChannel `yaml:"telegram"`
+	SMTP     *SMTPChannel     `yaml:"smtp"`
+	SendGrid *SendGridChannel `yaml:"sendgrid"`
+	Mailgun  *MailgunChannel  `yaml:"mailgun"`
+
+	Accounts []account `yaml:"accounts"`
+	SSL      SSLConfig `yaml:"ssl"`
 }
 
 // SSLConfig controls SSL certificate monitoring and cleanup.

@@ -36,32 +36,53 @@
       secret_key: "secret_key_2" # 该账户的 secretKey
       regions: [ "ap-guangzhou" ] # 要监控的区域
   ```
-  **配置文件特别说明：**
-  1. `notify_method` 目前可选的值有：sct(Server酱)、werobot（企业微信群机器人）、notifyx（NotifyX）、telegram（Telegram机器人），四选一
-  2. 根据 `notify_method` 的不同，需要配置做对应的配置：
+  **配置文件特别说明（通知）：**
+  1. **单渠道（兼容旧配置）**：设置 `notify_method` 后只走该渠道。可选：`sct`、`werobot`、`notifyx`、`telegram`、`smtp`、`sendgrid`、`mailgun`。
+  2. **多渠道**：不设置（或留空）`notify_method`，则为每个需要的渠道写嵌套段，并设 `enabled: true`，参数齐全的渠道会全部发送。
+  3. 单渠道示例：
      - sct: ([https://sct.ftqq.com/](https://sct.ftqq.com/r/13200))
        ```yaml
        notify_method: sct
-       sct_key: SCT63835...RhMSG # 从 sct.ftqq.com 获取的 sendkey
+       sct_key: SCT63835...RhMSG
        ```
      - werobot:
        ```yaml
        notify_method: werobot
-       werobot_webhook: https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=077...5f4 # 企业微信群机器人的 webhook 地址
-       werobot_chatid:  # 企业微信群机器人推送通知的 chatid，没有可留空
+       werobot_webhook: https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=077...5f4
+       werobot_chatid:  # 可选
        ```
      - notifyx: ([https://www.notifyx.cn](https://www.notifyx.cn))
        ```yaml
        notify_method: notifyx
-       notifyx_key: YOUR_NOTIFYX_KEY # NotifyX 的推送 Key（必填，到 https://www.notifyx.cn 注册获取）
-       notifyx_team: YOUR_TEAM       # NotifyX 推送目标团队（可选，留空则推送到默认团队）
+       notifyx_key: YOUR_NOTIFYX_KEY
+       notifyx_team: YOUR_TEAM       # 可选
        ```
      - telegram:
        ```yaml
        notify_method: telegram
-       telegram_bot_token: 123456:ABC-DEF... # Telegram 机器人的 Bot Token（通过 @BotFather 创建）
-       telegram_user_id: "987654321"         # 接收通知的 Telegram 用户 ID（可通过 @userinfobot 获取）
+       telegram_bot_token: 123456:ABC-DEF...
+       telegram_user_id: "987654321"
        ```
+     - smtp / sendgrid / mailgun：见 `conf.example.yml` 中对应段（`notify_method: smtp` 等，并配置 `smtp:` / `sendgrid:` / `mailgun:`）。
+  4. 多渠道示例：
+     ```yaml
+     # 不要写 notify_method
+     sct:
+       enabled: true
+       key: SCT63835...RhMSG
+     telegram:
+       enabled: true
+       bot_token: 123456:ABC-DEF...
+       user_id: "987654321"
+     smtp:
+       enabled: true
+       host: smtp.example.com
+       port: 587
+       username: user
+       password: pass
+       from: alert@example.com
+       to: [you@example.com]
+     ```
 - 启动 Docker 容器： 
 
   ```bash
@@ -112,7 +133,7 @@
 
 ## 开发计划：
 
+- [x] 多渠道通知（SMTP / SendGrid / Mailgun；兼容 `notify_method`）
 - [x] SSL 证书过期/即将过期清理（无关联才删；Common Client）
-- [ ] 支持企业微信机器人直接推送通知到企业微信
 - [ ] 提供 web 界面进行管理配置和查看流量使用历史记录
 - [ ] 将 lighthouse 调用迁移到 Common Client，去掉产品包依赖
